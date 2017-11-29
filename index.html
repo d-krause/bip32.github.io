@@ -25,6 +25,8 @@
     <script src="js/tx.js"></script>
     <script src="js/bitcoinsig.js"></script>
     <script src="js/brainwallet.js"></script>
+    
+    <script src="../nimiq-core-fork/dist/nimiq.js"></script>
   </head>
   <body onclick="rng_seed_time();" onkeypress="rng_seed_time();">
     <header class="navbar navbar-inverse navbar-fixed-top">
@@ -38,7 +40,7 @@
           </ul>
           <ul class="nav navbar-nav navbar-right">
             <li class="dropdown" id="crCurrency">
-              <a class="dropdown-toggle" data-toggle="dropdown" href="#" id="crSelect"><span id="crName">Bitcoin Mainnet</span>&nbsp;<b class="caret">&nbsp;</b></a>
+              <a class="dropdown-toggle" data-toggle="dropdown" href="#" id="crSelect"><span id="crName">Nimiq Test</span>&nbsp;<b class="caret">&nbsp;</b></a>
               <ul class="dropdown-menu">
                 <li><a href="http://blockchain.info/address/" id="btc_main">Bitcoin Mainnet</a></li>
                 <li><a href="http://blockexplorer.com/testnet/address/" id="btc_test">Bitcoin Testnet</a></li>
@@ -47,6 +49,7 @@
                 <li><a href="http://dogechain.info/address/" id="doge_main">Dogecoin Mainnet</a></li>
                 <li><a href="#" id="doge_test">Dogecoin Testnet</a></li>
                 <li><a href="https://chainz.cryptoid.info/jbs/" id="jbs_main">Jumbucks Mainnet</a></li>
+                <li><a href="https://nimiq.watch/#" id="nim_test">Nimiq Test</a></li>
                 <!-- Unsupported right now
                 <li><a href="http://explorer.litecoin.net/address/" title="0x30">LTC</a></li>
                 <li><a href="http://explorer.dot-bit.org/a/" title="0x34">NMC</a></li>
@@ -75,7 +78,8 @@
                     <label class="btn btn-default active" title="Single SHA256"><input id="from_pass" name="gen_from" type="radio" />Passphrase</label>
                     <label class="btn btn-default" title="Base58-encoded"><input id="from_key" name="gen_from" type="radio" />BIP32 Key</label>
                   </div>
-                  &nbsp;&nbsp;<span class="help-inline" id="gen_from_msg"></span>
+                  &nbsp;&nbsp;<span class="help-inline" id="gen_from_msg"></span>
+
                 </div>
               </div>
               <div class="form-group">
@@ -84,9 +88,9 @@
                   <div class="row">
                     <div class="col-lg-12">
                       <div class="input-group">
-                        <input class="form-control" id="bip32_source_passphrase" type="password" />
+                        <input class="form-control" id="bip32_source_passphrase" type="text" />
                         <div class="input-group-addon" style="height: 34px;">
-                          <input type="checkbox" id="checkbox_show_passphrase" /> Show Passphrase
+                          <input type="checkbox" id="checkbox_show_passphrase" checked /> Show Passphrase
                         </div>
                       </div>
                     </div>
