@@ -68,39 +68,38 @@ BIP32.prototype.init = async function() {
     this.is_nimiq = (this.version == NIMIQ_TESTNET_PUBLIC||
                      this.version == NIMIQ_TESTNET_PRIVATE);
     
+    var ecparams = getSECCurveByName("secp256k1");
+
     if( is_private && key_bytes[0] == 0 ) {
 
         this.has_private_key = true;
         
         if(this.is_nimiq){
-            //debugger;
             this.eckey = await Nimiq.KeyPair.derive(
                 new Nimiq.PrivateKey(Uint8Array.from(key_bytes.slice(1, 33)))
               );
 
             this.eckey.priv = new BigInteger(this.eckey.privateKey._obj);
-
-            var ecparams = getSECCurveByName("secp256k1");
-            var pt = ecparams.getG().multiply(this.eckey.priv);
-            this.eckey.pub = pt;
-            
-            this.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(this.eckey.pub.getEncoded(true));
+            this.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(this.eckey.publicKey._obj);
             
         }else{
             this.eckey = new Bitcoin.ECKey(key_bytes.slice(1, 33));
             this.eckey.setCompressed(true);
-
-            var ecparams = getSECCurveByName("secp256k1");
-            var pt = ecparams.getG().multiply(this.eckey.priv);
-            this.eckey.pub = pt;
+            this.eckey.pub = ecparams.getG().multiply(this.eckey.priv);
             this.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(this.eckey.pub.getEncoded(true));
         }
     } else if( is_public && (key_bytes[0] == 0x02 || key_bytes[0] == 0x03) ) {
-        this.eckey = new Bitcoin.ECKey();
-        this.eckey.pub = decompress_pubkey(key_bytes);
-        this.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(this.eckey.pub.getEncoded(true));
-        this.eckey.setCompressed(true);
         this.has_private_key = false;
+        if(this.is_nimiq){
+            this.eckey = { publicKey: new Nimiq.PublicKey(Uint8Array.from(key_bytes.slice(1, 33))) };
+            this.eckey.pub = decompress_pubkey(key_bytes);
+            this.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(this.eckey.publicKey._obj);
+        }else{
+            this.eckey = new Bitcoin.ECKey();
+            this.eckey.pub = decompress_pubkey(key_bytes);
+            this.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(this.eckey.pub.getEncoded(true));
+            this.eckey.setCompressed(true);
+        }
     } else {
         throw new Error("Invalid key");
     }
@@ -146,7 +145,7 @@ BIP32.prototype.build_extended_public_key = function() {
     case NIMIQ_TESTNET_PRIVATE:
         v = NIMIQ_TESTNET_PUBLIC;
         break;
-         default:
+    default:
         throw new Error("Unknown version");
     }
 
@@ -172,7 +171,12 @@ BIP32.prototype.build_extended_public_key = function() {
     this.extended_public_key = this.extended_public_key.concat(this.chain_code);
 
     // Public key
-    this.extended_public_key = this.extended_public_key.concat(this.eckey.pub.getEncoded(true));
+    if(this.is_nimiq){
+        this.extended_public_key.push(0x02);
+        this.extended_public_key = this.extended_public_key.concat(Array.from(this.eckey.publicKey._obj));
+    }else{
+        this.extended_public_key = this.extended_public_key.concat(this.eckey.pub.getEncoded(true));
+    }
 }
 
 BIP32.prototype.extended_public_key_string = function(format) {
@@ -238,7 +242,7 @@ BIP32.prototype.extended_private_key_string = function(format) {
 }
 
 
-BIP32.prototype.derive = function(path) {
+BIP32.prototype.derive = async function(path) {
     var e = path.split('/');
 
     // Special cases:
@@ -261,13 +265,13 @@ BIP32.prototype.derive = function(path) {
         if( use_private )
             child_index += 0x80000000;
 
-        bip32 = bip32.derive_child(child_index);
+        bip32 = await bip32.derive_child(child_index);
     }
 
     return bip32;
 }
 
-BIP32.prototype.derive_child = function(i) {
+BIP32.prototype.derive_child = async function(i) {
     var ib = [];
     ib.push( (i >> 24) & 0xff );
     ib.push( (i >> 16) & 0xff );
@@ -295,7 +299,7 @@ BIP32.prototype.derive_child = function(i) {
 
         if( use_private ) {
 
-            var k = this.is_nimiqz 
+            var k = this.is_nimiq
                     ? Array.from(this.eckey.privateKey._obj)
                     : this.eckey.priv.toByteArrayUnsigned();
             
@@ -306,8 +310,8 @@ BIP32.prototype.derive_child = function(i) {
 
         } else {
             
-            data = this.is_nimiqz 
-                    ? Array.from(this.eckey.publicKey._obj).concat(ib) 
+            data = this.is_nimiq
+                    ? Array.from(this.eckey.publicKey._obj).concat([0x02]).concat(ib) 
                     : this.eckey.pub.getEncoded(true).concat(ib);
 
         }
@@ -323,13 +327,19 @@ BIP32.prototype.derive_child = function(i) {
 
         ret = new BIP32();
         ret.chain_code  = ir;
-
-        ret.eckey = new Bitcoin.ECKey(k.toByteArrayUnsigned());
-        ret.eckey.pub = ret.eckey.getPubPoint();
         ret.has_private_key = true;
 
+        if(this.is_nimiq){
+            ret.eckey = await Nimiq.KeyPair.derive(
+                new Nimiq.PrivateKey(Uint8Array.from(k.toByteArrayUnsigned()))
+              );
+            ret.eckey.priv = new BigInteger(ret.eckey.privateKey._obj);
+        }else{
+            ret.eckey = new Bitcoin.ECKey(k.toByteArrayUnsigned());
+            ret.eckey.pub = ret.eckey.getPubPoint();
+        }
     } else {
-        var data = this.is_nimiqz ? this.eckey.publicKey._obj.concat(ib) : this.eckey.pub.getEncoded(true).concat(ib);
+        var data = this.is_nimiq ? Array.from(this.eckey.publicKey._obj).concat(ib) : this.eckey.pub.getEncoded(true).concat(ib);
         var j = new jsSHA(Crypto.util.bytesToHex(data), 'HEX');   
         var hash = j.getHMAC(Crypto.util.bytesToHex(this.chain_code), "HEX", "SHA-512", "HEX");
         var il = new BigInteger(hash.slice(0, 64), 16);
@@ -340,20 +350,29 @@ BIP32.prototype.derive_child = function(i) {
 
         ret = new BIP32();
         ret.chain_code  = ir;
-
-        ret.eckey = new Bitcoin.ECKey();
-        ret.eckey.pub = k;
         ret.has_private_key = false;
+        
+        if(this.is_nimiq){
+            ret.eckey = { publicKey: new Nimiq.PublicKey(Uint8Array.from(k.getEncoded(true).slice(1))) };
+            ret.eckey.pub = k;
+        }else{
+            ret.eckey = new Bitcoin.ECKey();
+            ret.eckey.pub = k;
+        }
     }
 
+    ret.is_nimiq = this.is_nimiq;
     ret.child_index = i;
     ret.parent_fingerprint = this.eckey.pubKeyHash.slice(0,4);
     ret.version = this.version;
     ret.depth   = this.depth + 1;
 
-    ret.eckey.setCompressed(true);
-    ret.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(ret.eckey.pub.getEncoded(true));
-
+    if(this.is_nimiq){
+        ret.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(ret.eckey.publicKey._obj);
+    }else{
+        ret.eckey.setCompressed(true);
+        ret.eckey.pubKeyHash = Bitcoin.Util.sha256ripe160(ret.eckey.pub.getEncoded(true));
+    }
     ret.build_extended_public_key();
     ret.build_extended_private_key();
 

@@ -394,19 +394,24 @@
             $("#derived_public_key_hex").val('');
             $("#addr").val('');
             $("#genAddrQR").val('');
-    
+            $("#testaddr").val('');
+
             try {
                 if(bip32_source_key == null) {
                     // if this is the case then there's an error state set on the source key
                     return;
                 }
                 console.log("Deriving: " + p);
-                var result = bip32_source_key.derive(p);
+                bip32_source_key.derive(p).then( result => {
+                    displayResult(result);
+                });
             } catch (err) {
                 setErrorState($('#bip32_derivation_path'), true, 'Error deriving key: ' + err.toString());
                 return;
             }
+        }
     
+        async function displayResult(result) {
             var key_coin = getCoinFromKey(result);
     
             if(bip32_source_key.is_nimiq){
@@ -415,38 +420,24 @@
                 $('#nimiq_wallet_seed_group').show();
 
                 if( result.has_private_key ) {
-                    var privkeyBytes = result.eckey.priv.toByteArrayUnsigned();
-                    Nimiq.KeyPair.derive(
-                        new Nimiq.PrivateKey(Uint8Array.from(privkeyBytes))
-                    ).then( key => {
-                        key.publicKey.toAddress().then( addr => {
-                            $("#addr").val(addr.toUserFriendlyAddress(true)).trigger("change");
-                        });
-                        
-                        $("#derived_public_key").val(result.extended_public_key_string("base58"));
-                        $("#derived_public_key_hex").val(key.publicKey.toHex());
-
-                        $("#nimiq_wallet_seed").val(key.privateKey.toHex()+ key.publicKey.toHex());
-                        $("#derived_private_key").val(result.extended_private_key_string("base58"));
-    
-                    } );
-                } else {
-                    var bytes = result.eckey.pub.x.toBigInteger().toByteArray().slice(1);
-                    bytes = result.eckey.pub.getEncoded(true).slice(1);
-                    var key = { publicKey: new Nimiq.PublicKey(Uint8Array.from(bytes)) };
-                    key.publicKey.toAddress().then( addr => {
-                        $("#addr").val(addr.toUserFriendlyAddress(true)).trigger("change");
-                    });
-                    
+                    var key = result.eckey;
+                    var addr = await key.publicKey.toAddress();
+                    $("#addr").val(addr.toUserFriendlyAddress(true)).trigger("change");
                     $("#derived_public_key").val(result.extended_public_key_string("base58"));
                     $("#derived_public_key_hex").val(key.publicKey.toHex());
 
+                    $("#nimiq_wallet_seed").val(key.privateKey.toHex()+ key.publicKey.toHex());
+                    $("#derived_private_key").val(result.extended_private_key_string("base58"));
+                } else {
+                    var key = result.eckey
+                    var addr = await key.publicKey.toAddress();
+                    $("#addr").val(addr.toUserFriendlyAddress(true)).trigger("change");
+                    $("#derived_public_key").val(result.extended_public_key_string("base58"));
+                    $("#derived_public_key_hex").val(key.publicKey.toHex());
 
                     $("#derived_private_key").val("No private key available");
                     $("#nimiq_wallet_seed").val("No private key available");
                 }
-
-
 
             }else{
 
@@ -476,6 +467,27 @@
                 addr.version = key_coin.prefix;
                 $("#addr").val(addr.toString()).trigger("change");
             }
+
+            //testing the extended public key
+            $("#testaddr").css('border-color', 'red');
+            var test_key = new BIP32(result.extended_public_key_string("base58"));
+            await test_key.init();
+            if(bip32_source_key.is_nimiq){
+                var addre = await test_key.eckey.publicKey.toAddress();
+
+                $("#testaddr").val(addr.toUserFriendlyAddress(true));
+                var color = $("#testaddr").val()==$("#addr").val() ? 'green' : 'red';
+                $("#testaddr").css('border-color', color);
+
+            }else{
+                var hash160 = test_key.eckey.pubKeyHash;
+                var addr = new Bitcoin.Address(hash160);
+                addr.version = key_coin.prefix;
+
+                $("#testaddr").val(addr.toString());
+                var color = $("#testaddr").val()==$("#addr").val() ? 'green' : 'red';
+                $("#testaddr").css('border-color', color);
+            }
         }
     
         function onInput(id, func) {
@@ -491,6 +503,10 @@
         }
     
         function onAddressChange(){
+
+            var color = $("#testaddr").val()==$("#addr").val() ? 'green' : 'red';
+            $("#testaddr").css('border-color', color);
+            
             var qrCode = qrcode(3, 'M');
             var text = $('#addr').val();
             text = text.replace(/^[\s\u3000]+|[\s\u3000]+$/g, '');
@@ -630,7 +646,19 @@
                 // currency select
 
                 $('#crCurrency ul li a').on('click', crChange);
-                    
+
+                $('#test_derived_private_key').click(function(e){
+                    $('#from_key').click();
+                    $('#bip32_source_key').val($('#derived_private_key').val()).trigger('change');
+                    e.preventDefault();
+
+                });
+                   
+                $('#test_derived_public_key').click(function(e){
+                    $('#from_key').click();
+                    $('#bip32_source_key').val($('#derived_public_key').val()).trigger('change');
+                    e.preventDefault();
+                });
                 //var $ = {};
                 //window.$ = $;
                 //$.consensus = await Nimiq.Consensus.nano();
