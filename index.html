@@ -13,7 +13,7 @@
     <link href="favicon.ico" rel="shortcut icon" />
     <script src="js/jquery.js"></script>
     <script src="js/bootstrap.min.js"></script>
-    <script src="js/bitcoinjs-min.js"></script>
+    <script src="js/bitcoinjs-formatted.js"></script>
     <script src="js/sha512.js"></script>
     <script src="js/modsqrt.js"></script>
     <script src="js/qrcode.js"></script>
@@ -220,7 +220,13 @@
                   <input class="form-control" id="derived_private_key" readonly="readonly" type="text" />
                 </div>
               </div>
-              <div class="form-group">
+              <div class="form-group" id="nimiq_wallet_seed_group">
+                <label class="col-lg-2 control-label" for="derived_private_key">Nimiq Wallet Seed</label>
+                <div class="col-lg-10">
+                  <input class="form-control" id="nimiq_wallet_seed" readonly="readonly" type="text" />
+                </div>
+              </div>
+              <div class="form-group" id="derived_private_key_wif_group">
                 <label class="col-lg-2 control-label" for="derived_private_key_wif">Private Key (WIF)</label>
                 <div class="col-lg-10">
                   <input class="form-control" id="derived_private_key_wif" readonly="readonly" type="text" />

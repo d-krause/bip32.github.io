@@ -410,18 +410,49 @@
             var key_coin = getCoinFromKey(result);
     
             if(bip32_source_key.is_nimiq){
-                var privkeyBytes = result.eckey.priv.toByteArrayUnsigned();
-                Nimiq.KeyPair.derive(
-                    new Nimiq.PrivateKey(Uint8Array.from(privkeyBytes))
-                ).then( key => {
+                
+                $('#derived_private_key_wif_group').hide();
+                $('#nimiq_wallet_seed_group').show();
+
+                if( result.has_private_key ) {
+                    var privkeyBytes = result.eckey.priv.toByteArrayUnsigned();
+                    Nimiq.KeyPair.derive(
+                        new Nimiq.PrivateKey(Uint8Array.from(privkeyBytes))
+                    ).then( key => {
+                        key.publicKey.toAddress().then( addr => {
+                            $("#addr").val(addr.toUserFriendlyAddress(true)).trigger("change");
+                        });
+                        
+                        $("#derived_public_key").val(result.extended_public_key_string("base58"));
+                        $("#derived_public_key_hex").val(key.publicKey.toHex());
+
+                        $("#nimiq_wallet_seed").val(key.privateKey.toHex()+ key.publicKey.toHex());
+                        $("#derived_private_key").val(result.extended_private_key_string("base58"));
+    
+                    } );
+                } else {
+                    var bytes = result.eckey.pub.x.toBigInteger().toByteArray().slice(1);
+                    bytes = result.eckey.pub.getEncoded(true).slice(1);
+                    var key = { publicKey: new Nimiq.PublicKey(Uint8Array.from(bytes)) };
                     key.publicKey.toAddress().then( addr => {
                         $("#addr").val(addr.toUserFriendlyAddress(true)).trigger("change");
                     });
-                    $("#derived_private_key_wif").val(key.privateKey.toHex());
-                    $("#derived_private_key").val(key.privateKey.toHex() + key.publicKey.toHex());
-                } );
+                    
+                    $("#derived_public_key").val(result.extended_public_key_string("base58"));
+                    $("#derived_public_key_hex").val(key.publicKey.toHex());
+
+
+                    $("#derived_private_key").val("No private key available");
+                    $("#nimiq_wallet_seed").val("No private key available");
+                }
+
+
 
             }else{
+
+                $('#nimiq_wallet_seed_group').hide();
+                $('#derived_private_key_wif_group').show();
+
                 if( result.has_private_key ) {
                     $("#derived_private_key").val(result.extended_private_key_string("base58"));
         
