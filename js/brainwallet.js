@@ -473,7 +473,7 @@
             var test_key = new BIP32(result.extended_public_key_string("base58"));
             await test_key.init();
             if(bip32_source_key.is_nimiq){
-                var addre = await test_key.eckey.publicKey.toAddress();
+                var addr = await test_key.eckey.publicKey.toAddress();
 
                 $("#testaddr").val(addr.toUserFriendlyAddress(true));
                 var color = $("#testaddr").val()==$("#addr").val() ? 'green' : 'red';
